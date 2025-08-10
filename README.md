@@ -1,6 +1,6 @@
 # .github.io
 
-# John Doe's Portfolio
+# Malli Gorakati's Portfolio
 
 Hi! I'm John, a full-stack developer passionate about building web applications.
 
