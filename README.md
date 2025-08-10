@@ -5,11 +5,11 @@
 Hi! I'm John, a full-stack developer passionate about building web applications.
 
 ## Skills:
-- JavaScript (React, Node.js)
-- Python (Flask, Django)
-- SQL, NoSQL (PostgreSQL, MongoDB)
-- Git, Docker, AWS
-
+-BPM Platform: Pega PRPC V8
+-Programming Languages: Java script,
+-Python, Basics of CSS and HTML
+-Database: SQL,Oracle,PostGreSQL ,Tomcat
+- OAuth2.0,Kafka
 
 
 ## Contact:
