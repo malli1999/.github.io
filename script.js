@@ -1,129 +1,146 @@
-// ===== Year in footer
-const yEl = document.getElementById('y');
+// ===== Footer year
+const yEl = document.getElementById("y");
 if (yEl) yEl.textContent = new Date().getFullYear();
 
-// ===== Accordion for Experience
-document.querySelectorAll('.exp-toggle').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const expanded = btn.getAttribute('aria-expanded') === 'true';
-    btn.setAttribute('aria-expanded', String(!expanded));
+// ===== Experience accordion
+document.querySelectorAll(".exp-toggle").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const expanded = btn.getAttribute("aria-expanded") === "true";
+    btn.setAttribute("aria-expanded", String(!expanded));
     const panel = btn.nextElementSibling;
     panel.hidden = expanded;
   });
 });
 
-// ===== Curvy ribbons background (all lines same speed)
+// ===== Constellation / low-poly background
 (() => {
-  const c = document.getElementById('bg-canvas');
+  const c = document.getElementById("bg-canvas");
   if (!c) return;
-  const ctx = c.getContext('2d', { alpha: true });
+  const ctx = c.getContext("2d", { alpha: true });
 
-  // ---- Tunables: push these if you want even more curve
-  const ANGLE_DEG = -20;                 // tilt
-  const COUNT_MIN = 10, COUNT_MAX = 20;  // how many ribbons
-  const AMP1 = [48, 120];                // main wave amplitude (px)
-  const LAM1 = [80, 180];                // main wavelength (px)
-  const AMP2_RATIO = 0.5;                // secondary wave is 50% of AMP1
-  const LAM2_RATIO = 0.55;               // secondary wave wavelength
-  const WAVE_CYCLES_PER_SEC = 0.45;      // “wiggle” speed (same for all)
-  const SLIDE_PX_PER_SEC = 80;           // slide speed across screen (same for all)
-  const STEP_PX = 10;                    // segment step (smaller = smoother, heavier)
+  // ---------- Tunables ----------
+  const NODE_DENSITY = 0.08;      // nodes per vw (bigger -> more nodes)
+  const SPEED_PX_SEC = 28;        // same speed for every node
+  const CONNECT_DIST = 160;       // link threshold (px)
+  const DOT_RADIUS = 2;           // node radius (px)
+  const LINE_ALPHA = 0.25;        // line opacity
+  const TRI_ALPHA  = 0.035;       // triangle fill opacity (very subtle)
+  const HUE = 225;                // base hue (blue-ish)
+  // ------------------------------
 
   let dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-  let W=0, H=0, diag=0, B={x:0,y:0}, N={x:0,y:0}, lines=[];
-  const prefersReduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W = 0, H = 0, nodes = [], max2 = 0;
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  function resize(){
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function resize() {
     W = Math.round(innerWidth * dpr);
     H = Math.round(innerHeight * dpr);
     c.width = W; c.height = H;
-    c.style.width = innerWidth + 'px';
-    c.style.height = innerHeight + 'px';
+    c.style.width = innerWidth + "px";
+    c.style.height = innerHeight + "px";
 
-    const a = ANGLE_DEG * Math.PI/180;
-    B = { x: Math.cos(a), y: Math.sin(a) };        // direction along the ribbon
-    N = { x:-Math.sin(a), y: Math.cos(a) };        // perpendicular to ribbon
-    diag = Math.hypot(W, H);
-    initLines();
-  }
-
-  function rr(a,b){ return a + Math.random()*(b-a); }
-
-  function initLines(){
-    const count = Math.max(COUNT_MIN, Math.min(COUNT_MAX, Math.round(innerWidth/140)));
-    lines = Array.from({length:count}, () => {
-      const amp1 = rr(AMP1[0], AMP1[1]) * dpr;
-      const lam1 = rr(LAM1[0], LAM1[1]) * dpr;
+    // number of nodes scales with width; clamp for perf
+    const n = Math.max(40, Math.min(140, Math.round(innerWidth * NODE_DENSITY)));
+    nodes = Array.from({ length: n }, () => {
+      // all nodes share the same speed magnitude; random direction
+      const ang = rand(0, Math.PI * 2);
+      const v = SPEED_PX_SEC * dpr;
       return {
-        amp1,
-        lam1,
-        amp2: amp1 * AMP2_RATIO,
-        lam2: lam1 * LAM2_RATIO,
-        w:   rr(1.6, 2.8) * dpr,
-        hue: 220 + Math.random()*30,
-        alpha: 0.10 + Math.random()*0.08,
-        offset: rr(-diag, diag),         // position along the perpendicular
-        ph0: Math.random()*Math.PI*2,    // phase for wave1
-        ph1: Math.random()*Math.PI*2     // phase for wave2
+        x: Math.random() * W,
+        y: Math.random() * H,
+        vx: Math.cos(ang) * v,
+        vy: Math.sin(ang) * v,
       };
     });
+
+    max2 = Math.pow(CONNECT_DIST * dpr, 2);
   }
 
-  function background(){
-    const g = ctx.createRadialGradient(W*0.2, H*0.1, 0, W*0.2, H*0.1, Math.max(W,H));
-    g.addColorStop(0, '#1b2553'); g.addColorStop(0.4, '#0e122a'); g.addColorStop(1, '#070a18');
-    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  function bg() {
+    const g = ctx.createRadialGradient(W * 0.2, H * 0.1, 0, W * 0.2, H * 0.1, Math.max(W, H));
+    g.addColorStop(0, "#1b2553");
+    g.addColorStop(0.4, "#0e122a");
+    g.addColorStop(1, "#070a18");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
 
-  function drawLine(L, phase){
-    ctx.save();
-    ctx.strokeStyle = `hsla(${L.hue},80%,72%,${L.alpha})`;
-    ctx.lineWidth = L.w;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.shadowColor = `hsla(${L.hue},90%,70%,${L.alpha*0.9})`;
-    ctx.shadowBlur = 8 * dpr;
+  function draw() {
+    // lines & triangles
+    ctx.lineWidth = 1 * dpr;
+    ctx.strokeStyle = `hsla(${HUE}, 70%, 78%, ${LINE_ALPHA})`;
 
-    const T = diag * 0.9;                 // half-length
-    const STEP = STEP_PX * dpr;
-    const cx = W/2, cy = H/2;
+    // For triangle fill: store 2 nearest neighbors for each node
+    const nearest2 = new Array(nodes.length);
 
-    ctx.beginPath();
-    for (let t=-T; t<=T; t+=STEP){
-      // Two sine waves combined -> clearly curvy
-      const wave =
-        L.amp1 * Math.sin((t/L.lam1)*Math.PI*2 + phase + L.ph0) +
-        L.amp2 * Math.sin((t/L.lam2)*Math.PI*2 - phase*0.6 + L.ph1);
+    for (let i = 0; i < nodes.length; i++) {
+      let n1 = -1, n2 = -1, d1 = Infinity, d2 = Infinity;
 
-      const x = cx + B.x*t + N.x*(L.offset + wave);
-      const y = cy + B.y*t + N.y*(L.offset + wave);
-      (t===-T) ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const d2ij = dx * dx + dy * dy;
 
-  let last = performance.now(), phase = 0;
-  function tick(now){
-    const dt = Math.min(0.05, (now - last)/1000); last = now;
-    phase += WAVE_CYCLES_PER_SEC * dt * Math.PI*2;            // same undulation
-    const slide = SLIDE_PX_PER_SEC * dpr * dt;                 // same speed for all
+        if (d2ij <= max2) {
+          // line i-j
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.stroke();
 
-    background();
-
-    for (const L of lines){
-      L.offset += slide;
-      const wrap = diag * 2.6;
-      if (L.offset > wrap/2) L.offset -= wrap;                // wrap around
-      drawLine(L, phase);
+          // track nearest neighbors
+          if (d2ij < d1) { d2 = d1; n2 = n1; d1 = d2ij; n1 = j; }
+          else if (d2ij < d2) { d2 = d2ij; n2 = j; }
+        }
+      }
+      nearest2[i] = (n1 >= 0 && n2 >= 0) ? [n1, n2] : null;
     }
 
-    if (!prefersReduced) requestAnimationFrame(tick);
+    // very subtle low-poly triangle fill
+    ctx.fillStyle = `hsla(${HUE}, 70%, 70%, ${TRI_ALPHA})`;
+    nearest2.forEach((pair, i) => {
+      if (!pair) return;
+      const [a, b] = pair;
+      ctx.beginPath();
+      ctx.moveTo(nodes[i].x, nodes[i].y);
+      ctx.lineTo(nodes[a].x, nodes[a].y);
+      ctx.lineTo(nodes[b].x, nodes[b].y);
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    // dots on top
+    ctx.fillStyle = `hsla(${HUE}, 80%, 85%, .9)`;
+    for (const p of nodes) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, DOT_RADIUS * dpr, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
-  // Debug flag so you can verify the new script is loaded
-  window.__curvyBgLoaded = true;
+  let last = performance.now();
+  function tick(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
 
-  resize(); background(); if (!prefersReduced) requestAnimationFrame(tick);
-  addEventListener('resize', resize, {passive:true});
+    // update positions (all same speed magnitude)
+    for (const p of nodes) {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+
+      // bounce on edges
+      if (p.x < 0) { p.x = 0; p.vx *= -1; }
+      if (p.x > W) { p.x = W; p.vx *= -1; }
+      if (p.y < 0) { p.y = 0; p.vy *= -1; }
+      if (p.y > H) { p.y = H; p.vy *= -1; }
+    }
+
+    bg();
+    draw();
+
+    if (!reduceMotion) requestAnimationFrame(tick);
+  }
+
+  resize(); bg(); if (!reduceMotion) requestAnimationFrame(tick);
+  addEventListener("resize", resize, { passive: true });
 })();
